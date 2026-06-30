@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EX500 Nomogram Assistant</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">Alcon WaveLight EX500</p>
+      <h1>Nomogram Assistant</h1>
+    </div>
+    <div class="header-status" id="headerStatus">Ready</div>
+  </header>
+
+  <main class="app-shell">
+    <section class="panel input-panel" aria-labelledby="inputTitle">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">입력</p>
+          <h2 id="inputTitle">수술 계획값</h2>
+        </div>
+        <button class="icon-button" id="sampleButton" type="button" title="예시값 입력" aria-label="예시값 입력">
+          <span aria-hidden="true">↺</span>
+        </button>
+      </div>
+
+      <div class="form-grid">
+        <label>
+          <span>프로파일</span>
+          <select id="profile">
+            <option value="wellington">EX500/Wellington 표</option>
+            <option value="percentage">20-25% cylinder 표</option>
+            <option value="contoura">Contoura Vision modified</option>
+          </select>
+        </label>
+
+        <label>
+          <span>수술</span>
+          <select id="procedure">
+            <option value="lasik">LASIK</option>
+            <option value="lasek">LASEK/PRK</option>
+          </select>
+        </label>
+
+        <label>
+          <span>눈</span>
+          <select id="eye">
+            <option value="OD">OD</option>
+            <option value="OS">OS</option>
+          </select>
+        </label>
+
+        <label>
+          <span>나이</span>
+          <input id="age" type="number" min="0" max="120" step="1" value="32">
+        </label>
+
+        <label>
+          <span>입력 cylinder 표기</span>
+          <select id="cylinderConvention">
+            <option value="minus">Minus cylinder</option>
+            <option value="plus">Plus cylinder</option>
+          </select>
+        </label>
+
+        <label>
+          <span>반올림 단위</span>
+          <select id="rounding">
+            <option value="0.25">0.25 D</option>
+            <option value="0.01">0.01 D</option>
+            <option value="none">반올림 없음</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="refraction-grid">
+        <label>
+          <span>Sphere</span>
+          <input id="sphere" type="number" step="0.25" value="-3.00">
+        </label>
+        <label>
+          <span>Cylinder</span>
+          <input id="cylinder" type="number" step="0.25" value="-1.00">
+        </label>
+        <label>
+          <span>Axis</span>
+          <input id="axis" type="number" min="0" max="180" step="1" value="179">
+        </label>
+      </div>
+
+      <div class="contoura-fields" id="contouraFields">
+        <div class="section-heading compact">
+          <div>
+            <p class="eyebrow">Contoura</p>
+            <h3>Topolyzer measured 값</h3>
+          </div>
+        </div>
+        <div class="refraction-grid">
+          <label>
+            <span>Measured cylinder</span>
+            <input id="measuredCylinder" type="number" step="0.25" value="-2.00">
+          </label>
+          <label>
+            <span>Measured axis</span>
+            <input id="measuredAxis" type="number" min="0" max="180" step="1" value="179">
+          </label>
+          <label class="toggle-row">
+            <input id="applySphereNomogram" type="checkbox" checked>
+            <span>Modified sphere에 개인 sphere-only nomogram 적용</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="form-grid tight">
+        <label>
+          <span>20-25% cylinder 비율</span>
+          <input id="percentReduction" type="number" min="20" max="25" step="1" value="25">
+        </label>
+
+        <label>
+          <span>1년 SE 변화량</span>
+          <input id="seShift" type="number" min="0" step="0.25" placeholder="예: 0.25">
+        </label>
+
+        <label>
+          <span>추가 sphere offset</span>
+          <input id="manualSphereOffset" type="number" step="0.25" value="0.00">
+        </label>
+
+        <label>
+          <span>추가 cylinder offset</span>
+          <input id="manualCylinderOffset" type="number" step="0.25" value="0.00">
+        </label>
+      </div>
+    </section>
+
+    <section class="panel result-panel" aria-labelledby="resultTitle">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">결과</p>
+          <h2 id="resultTitle">장비 입력 추천값</h2>
+        </div>
+        <button class="icon-button" id="copyButton" type="button" title="결과 복사" aria-label="결과 복사">
+          <span aria-hidden="true">⧉</span>
+        </button>
+      </div>
+
+      <div class="result-main">
+        <div class="rx-card">
+          <div class="rx-label">Final treatment</div>
+          <div class="rx-line" id="finalRx">-2.75 -1.50 x 179</div>
+          <div class="rx-meta" id="finalMeta">SEQ -3.50 D</div>
+        </div>
+        <canvas id="axisCanvas" width="360" height="220" aria-label="Axis preview"></canvas>
+      </div>
+
+      <div class="summary-grid">
+        <div>
+          <span>입력</span>
+          <strong id="manifestRx">-3.00 -1.00 x 179</strong>
+        </div>
+        <div>
+          <span>계산 전 SE</span>
+          <strong id="manifestSeq">-3.50 D</strong>
+        </div>
+        <div>
+          <span>나이 보정</span>
+          <strong id="ageAdjustment">0.00 D</strong>
+        </div>
+        <div>
+          <span>총 offset</span>
+          <strong id="totalOffset">S 0.00 / C 0.00</strong>
+        </div>
+      </div>
+
+      <div id="contouraSummary" class="sub-result"></div>
+
+      <div class="notice-list" id="notices"></div>
+    </section>
+
+    <section class="panel age-panel" aria-labelledby="ageTitle">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">설정</p>
+          <h2 id="ageTitle">연령별 sphere 보정</h2>
+        </div>
+        <div class="button-row">
+          <button id="saveAgeTable" type="button">저장</button>
+          <button id="resetAgeTable" type="button">초기화</button>
+        </div>
+      </div>
+      <div class="age-table" id="ageTable"></div>
+      <p class="helper-text">기본 preset은 근시/근시성 난시 문헌을 바탕으로 한 보수값입니다. 18-29세는 -0.25 D, 30-44세는 0.00 D, 45세 이상은 +0.25 D이며 hyperopia/mixed astigmatism에는 자동 적용하지 않습니다. 병원 내부 outcome audit 값으로 언제든 바꿀 수 있습니다.</p>
+    </section>
+
+    <section class="panel trace-panel" aria-labelledby="traceTitle">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">검산</p>
+          <h2 id="traceTitle">적용된 규칙</h2>
+        </div>
+      </div>
+      <ol id="traceList" class="trace-list"></ol>
+    </section>
+
+    <section class="panel reference-panel" aria-labelledby="referenceTitle">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">참고</p>
+          <h2 id="referenceTitle">안전 확인 포인트</h2>
+        </div>
+      </div>
+      <div class="check-grid">
+        <label class="toggle-row">
+          <input type="checkbox" id="topographyQuality">
+          <span>Topography map quality가 수술 계획에 충분함</span>
+        </label>
+        <label class="toggle-row">
+          <input type="checkbox" id="stableRefraction">
+          <span>1년간 manifest SE 변화량이 0.50 D 이하</span>
+        </label>
+        <label class="toggle-row">
+          <input type="checkbox" id="screenedContra">
+          <span>금기/주의 질환, 약물, 건성안, 각막두께를 별도 확인함</span>
+        </label>
+      </div>
+      <p class="helper-text">이 도구는 계산 보조용입니다. 실제 수술 결정, 적응증, 광학부, 잔여각막두께, PTA, cyclotorsion/registration quality는 장비 라벨과 집도의 판단으로 최종 확인해야 합니다.</p>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <span>Built for clinician-side planning review.</span>
+    <a href="README.md">README</a>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
