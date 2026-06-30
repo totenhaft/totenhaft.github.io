@@ -135,6 +135,52 @@
           <input id="manualCylinderOffset" type="number" step="0.25" value="0.00">
         </label>
       </div>
+
+      <div class="safety-inputs">
+        <div class="section-heading compact">
+          <div>
+            <p class="eyebrow">Cornea</p>
+            <h3>각막 안전성 입력</h3>
+          </div>
+        </div>
+        <div class="form-grid tight">
+          <label>
+            <span>CCT / 중심각막두께</span>
+            <input id="centralCornealThickness" type="number" min="300" max="700" step="1" value="540">
+          </label>
+          <label>
+            <span>K flat</span>
+            <input id="kFlat" type="number" min="30" max="60" step="0.1" value="43.0">
+          </label>
+          <label>
+            <span>K steep</span>
+            <input id="kSteep" type="number" min="30" max="60" step="0.1" value="44.0">
+          </label>
+          <label>
+            <span>Optical zone</span>
+            <input id="opticalZone" type="number" min="4.5" max="7.5" step="0.1" value="6.5">
+          </label>
+        </div>
+        <div class="form-grid tight">
+          <label>
+            <span>Flap/epithelium</span>
+            <input id="lamellarThickness" type="number" min="0" max="180" step="1" value="110">
+          </label>
+          <label>
+            <span>장비 ablation depth</span>
+            <input id="plannedAblationDepth" type="number" min="0" max="250" step="1" placeholder="없으면 추정">
+          </label>
+          <label>
+            <span>최소 RSB 기준</span>
+            <input id="minimumRsb" type="number" min="250" max="350" step="1" value="300">
+          </label>
+          <label>
+            <span>Flat K 하한</span>
+            <input id="minimumFlatK" type="number" min="32" max="40" step="0.1" value="35.0">
+          </label>
+        </div>
+        <p class="helper-text">Ablation depth는 장비 planning 화면의 실제값을 우선 입력하세요. 비워두면 myopic meridian과 optical zone으로 Munnerlyn 추정값을 계산합니다.</p>
+      </div>
     </section>
 
     <section class="panel result-panel" aria-labelledby="resultTitle">
@@ -179,6 +225,53 @@
       <div id="contouraSummary" class="sub-result"></div>
 
       <div class="notice-list" id="notices"></div>
+    </section>
+
+    <section class="panel safety-panel" aria-labelledby="safetyTitle">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Safety</p>
+          <h2 id="safetyTitle">각막 안전성 검산</h2>
+        </div>
+        <div class="status-pill" id="safetyStatus">계산 대기</div>
+      </div>
+      <div class="safety-grid">
+        <div>
+          <span>PTA</span>
+          <strong id="ptaValue">-</strong>
+        </div>
+        <div>
+          <span>잔여 각막 두께</span>
+          <strong id="rsbValue">-</strong>
+        </div>
+        <div>
+          <span>절삭량</span>
+          <strong id="ablationValue">-</strong>
+        </div>
+        <div>
+          <span>수술 후 flat K</span>
+          <strong id="postFlatKValue">-</strong>
+        </div>
+      </div>
+      <div class="safety-grid secondary">
+        <div>
+          <span>수술 후 mean K</span>
+          <strong id="postMeanKValue">-</strong>
+        </div>
+        <div>
+          <span>Preop mean K</span>
+          <strong id="preMeanKValue">-</strong>
+        </div>
+        <div>
+          <span>조직 사용량</span>
+          <strong id="tissueUsedValue">-</strong>
+        </div>
+        <div>
+          <span>계산 방식</span>
+          <strong id="ablationSourceValue">-</strong>
+        </div>
+      </div>
+      <div class="notice-list" id="safetyNotices"></div>
     </section>
 
     <section class="panel age-panel" aria-labelledby="ageTitle">

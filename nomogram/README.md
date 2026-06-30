@@ -7,6 +7,22 @@ Alcon WaveLight EX500 수술 계획값을 검산하기 위한 정적 웹 계산�
 - **EX500/Wellington 표**: 첨부 사진의 Wellington Clinic FDA Nomogram 표를 기반으로 myopia sphere/cylinder band를 적용합니다. Cylinder가 있는 myopic refraction에서는 사진 하단 문구에 따라 sphere component에 `-0.25 D`를 추가합니다.
 - **20-25% cylinder 표**: 첨부 사진 2의 myopia/hyperopia/mixed astigmatism 규칙을 기반으로 cylinder를 20-25% 감산합니다.
 - **Contoura Vision modified**: Alcon Contoura Vision Training Card의 modified cylinder/sphere 계산 순서를 구현했습니다. Refraction cylinder와 measured cylinder/axis의 mismatch가 큰 경우 Wavefront Optimized 고려 경고를 표시합니다.
+- **각막 안전성 검산**: CCT, K flat/steep, optical zone, flap/epithelium thickness, 장비 ablation depth를 바탕으로 PTA, 잔여 각막 두께(RSB), 절삭량, 추정 수술 후 flat K/mean K를 계산합니다.
+
+## 각막 안전성
+
+장비 planning 화면의 실제 ablation depth가 있으면 그 값을 우선 사용합니다. 비워두면 근시성 meridian과 optical zone으로 Munnerlyn 공식(`ablation ≈ D × OZ² / 3`)을 이용해 중심부 절삭량을 추정합니다. EX500의 실제 ablation profile, transition/blend zone, WFO/Contoura profile과 다를 수 있으므로 추정값은 선별용입니다.
+
+기본 경고 기준은 다음처럼 보수적으로 설정했습니다.
+
+| 항목 | 주의 | 고위험 |
+| --- | ---: | ---: |
+| PTA | 35% 이상 | 40% 이상 |
+| RSB | 설정 기준 미만, 기본 300 µm | 250 µm 미만 |
+| Post-op flat K | 36 D 부근 | 설정 하한 미만, 기본 35 D |
+| CCT | 500 µm 미만 | 480 µm 미만은 더 보수 검토 |
+
+PTA는 주로 LASIK flap 기반 연구에서 검증된 지표입니다. LASEK/PRK에서는 동일한 의미의 검증 지표라기보다 tissue-use index와 RSB 검산으로 해석해야 합니다. 사용자가 언급한 IHSS는 공개 문헌에서 LASIK 안전성 표준 약어로 명확히 확인되지 않아 자동 점수로 넣지 않았습니다. 병원에서 쓰는 IHSS 정의표가 있으면 별도 점수 계산으로 추가할 수 있습니다.
 
 ## 연령 보정
 
@@ -42,6 +58,10 @@ Alcon WaveLight EX500 수술 계획값을 검산하기 위한 정적 웹 계산�
   https://pubmed.ncbi.nlm.nih.gov/40199570/
 - Influence of preoperative parameters on delta K per attempted SEQ in LASIK/PRK/SMILE. Clin Ophthalmol. 2023.
   https://pubmed.ncbi.nlm.nih.gov/37662649/
+- Santhiago MR, Smadja D, Gomes BF, et al. Association between the percent tissue altered and post-LASIK ectasia in eyes with normal preoperative topography. Am J Ophthalmol. 2014.
+  https://pubmed.ncbi.nlm.nih.gov/24727263/
+- Santhiago MR. Percent tissue altered and corneal ectasia. Curr Opin Ophthalmol. 2016.
+  https://pubmed.ncbi.nlm.nih.gov/27096376/
 - Local source: `18ALZ023-Contoura-Training-Card-HiRes.2.0.0.pdf`, Contoura Vision Training Card en-us Rev.00, 2019-01-22, Item No. 6675 2022.
 - Local source: 사용자가 제공한 Wellington Clinic FDA Nomogram 사진 2장.
 

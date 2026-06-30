@@ -111,6 +111,7 @@ button:hover {
 }
 
 .result-panel,
+.safety-panel,
 .trace-panel,
 .reference-panel {
   grid-column: 2;
@@ -280,7 +281,8 @@ select:focus {
   margin-top: 14px;
 }
 
-.summary-grid > div {
+.summary-grid > div,
+.safety-grid > div {
   min-height: 76px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -288,18 +290,64 @@ select:focus {
   padding: 12px;
 }
 
-.summary-grid span {
+.summary-grid span,
+.safety-grid span {
   display: block;
   color: var(--muted);
   font-size: 12px;
   font-weight: 700;
 }
 
-.summary-grid strong {
+.summary-grid strong,
+.safety-grid strong {
   display: block;
   margin-top: 8px;
   font-size: 17px;
   overflow-wrap: anywhere;
+}
+
+.safety-inputs {
+  margin-top: 18px;
+  padding-top: 2px;
+}
+
+.safety-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.safety-grid.secondary {
+  margin-top: 10px;
+}
+
+.status-pill {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 12px;
+  color: var(--muted);
+  background: var(--surface-soft);
+  font-size: 13px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.status-pill.ok {
+  color: var(--green);
+  border-color: rgba(31, 122, 76, 0.35);
+  background: rgba(31, 122, 76, 0.08);
+}
+
+.status-pill.warn {
+  color: var(--amber);
+  border-color: rgba(155, 100, 0, 0.35);
+  background: rgba(155, 100, 0, 0.08);
+}
+
+.status-pill.danger {
+  color: var(--red);
+  border-color: rgba(163, 59, 53, 0.35);
+  background: rgba(163, 59, 53, 0.08);
 }
 
 .sub-result {
@@ -436,6 +484,7 @@ select:focus {
   .input-panel,
   .age-panel,
   .result-panel,
+  .safety-panel,
   .trace-panel,
   .reference-panel {
     grid-column: 1;
@@ -456,7 +505,8 @@ select:focus {
   .form-grid.tight,
   .refraction-grid,
   .result-main,
-  .summary-grid {
+  .summary-grid,
+  .safety-grid {
     grid-template-columns: 1fr;
   }
 

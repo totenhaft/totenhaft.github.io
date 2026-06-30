@@ -59,6 +59,14 @@
     return `${sphere} ${cylinder} x ${axis}`;
   }
 
+  function formatMicron(value) {
+    return Number.isFinite(value) ? `${Math.round(value)} µm` : "-";
+  }
+
+  function formatPercent(value) {
+    return Number.isFinite(value) ? `${value.toFixed(1)}%` : "-";
+  }
+
   function normalizeAxis(axis) {
     const raw = Math.round(toNumber(axis, 180));
     const mod = ((raw % 180) + 180) % 180;
@@ -410,6 +418,7 @@
     trace.push(`최종 반올림 단위: ${options.rounding ? `${options.rounding.toFixed(2)} D` : "없음"}.`);
 
     addRangeWarnings(input, manifestMinus, rounded, warnings, profileLabel);
+    const safety = calculateCornealSafety(rounded, input);
 
     return {
       profileLabel,
@@ -418,6 +427,7 @@
       unrounded: working,
       ageDelta: age.delta,
       ageLabel: age.label,
+      safety,
       trace,
       warnings
     };
@@ -520,6 +530,128 @@
     }
   }
 
+  function calculateEstimatedAblation(rx, opticalZone) {
+    if (!Number.isFinite(opticalZone) || opticalZone <= 0) return NaN;
+    const meridianA = rx.sphere;
+    const meridianB = rx.sphere + rx.cylinder;
+    const maxMyopicMeridian = Math.min(0, meridianA, meridianB);
+    const myopicMagnitude = Math.abs(maxMyopicMeridian);
+    if (myopicMagnitude < 0.125) return NaN;
+    return (myopicMagnitude * opticalZone * opticalZone) / 3;
+  }
+
+  function calculateCornealSafety(rx, input) {
+    const cct = toNumber(input.centralCornealThickness, NaN);
+    const kFlat = toNumber(input.kFlat, NaN);
+    const kSteep = toNumber(input.kSteep, NaN);
+    const opticalZone = toNumber(input.opticalZone, NaN);
+    const lamellar = Math.max(0, toNumber(input.lamellarThickness, input.procedure === "lasek" ? 50 : 110));
+    const plannedAblation = toNumber(input.plannedAblationDepth, NaN);
+    const estimatedAblation = calculateEstimatedAblation(rx, opticalZone);
+    const ablationDepth = Number.isFinite(plannedAblation) && plannedAblation > 0 ? plannedAblation : estimatedAblation;
+    const ablationSource = Number.isFinite(plannedAblation) && plannedAblation > 0 ? "장비값" : "Munnerlyn 추정";
+    const minimumRsb = toNumber(input.minimumRsb, 300);
+    const minimumFlatK = toNumber(input.minimumFlatK, 35);
+    const meanK = Number.isFinite(kFlat) && Number.isFinite(kSteep) ? (kFlat + kSteep) / 2 : NaN;
+    const se = sphericalEquivalent(rx);
+    const postFlatK = Number.isFinite(kFlat) ? kFlat + se : NaN;
+    const postMeanK = Number.isFinite(meanK) ? meanK + se : NaN;
+    const residualStromalBed = Number.isFinite(cct) && Number.isFinite(ablationDepth) ? cct - lamellar - ablationDepth : NaN;
+    const pta = Number.isFinite(cct) && cct > 0 && Number.isFinite(ablationDepth) ? ((lamellar + ablationDepth) / cct) * 100 : NaN;
+    const notices = [];
+    let status = "ok";
+    let label = "계산상 양호";
+
+    const raise = (level, title, message) => {
+      notices.push({ level, title, message });
+      if (level === "danger") {
+        status = "danger";
+        label = "수술 부적합 검토";
+      } else if (level === "warn" && status !== "danger") {
+        status = "warn";
+        label = "주의 검토";
+      }
+    };
+
+    if (!Number.isFinite(cct) || !Number.isFinite(kFlat) || !Number.isFinite(kSteep)) {
+      raise("warn", "입력 필요", "CCT, K flat, K steep를 입력해야 각막 안전성 계산이 완성됩니다.");
+    }
+
+    if (!Number.isFinite(plannedAblation) || plannedAblation <= 0) {
+      raise("info", "절삭량 추정", "장비 ablation depth가 없어 Munnerlyn 공식으로 추정했습니다. EX500의 실제 blend zone, WFO/Contoura profile과 다를 수 있습니다.");
+    }
+
+    const type = classifyRefraction(rx);
+    if (type !== "myopia" && (!Number.isFinite(plannedAblation) || plannedAblation <= 0)) {
+      raise("warn", "원시/혼합난시 절삭량", "Munnerlyn 중심부 절삭 추정은 근시 교정에 가장 적합합니다. 원시 또는 혼합난시는 장비 planning 화면의 실제 ablation depth를 입력하세요.");
+    }
+
+    if (Number.isFinite(pta)) {
+      if (pta >= 40) {
+        raise("danger", "PTA 고위험", `PTA ${formatPercent(pta)}입니다. Santhiago 연구의 40% 이상 기준에 해당하므로 ectasia 위험을 강하게 재검토하세요.`);
+      } else if (pta >= 35) {
+        raise("warn", "PTA 주의", `PTA ${formatPercent(pta)}입니다. 40% 미만이지만 보수적 검토 구간입니다.`);
+      }
+    }
+
+    if (Number.isFinite(residualStromalBed)) {
+      if (residualStromalBed < 250) {
+        raise("danger", "RSB 매우 낮음", `잔여 stromal bed가 ${formatMicron(residualStromalBed)}로 250 µm 미만입니다.`);
+      } else if (residualStromalBed < minimumRsb) {
+        raise("warn", "RSB 기준 미달", `잔여 각막 두께 ${formatMicron(residualStromalBed)}가 설정 기준 ${formatMicron(minimumRsb)}보다 낮습니다.`);
+      }
+    }
+
+    if (Number.isFinite(postFlatK)) {
+      if (postFlatK < minimumFlatK) {
+        raise("warn", "Flat K 낮음", `추정 수술 후 flat K가 ${postFlatK.toFixed(2)} D로 설정 하한 ${minimumFlatK.toFixed(1)} D보다 낮습니다.`);
+      } else if (postFlatK < minimumFlatK + 1) {
+        raise("info", "Flat K 경계", `추정 수술 후 flat K가 ${postFlatK.toFixed(2)} D로 낮은 편입니다.`);
+      }
+    }
+
+    if (Number.isFinite(cct) && cct < 500) {
+      raise(cct < 480 ? "warn" : "info", "얇은 각막", `CCT가 ${formatMicron(cct)}입니다. tomography와 biomechanical risk를 더 보수적으로 검토하세요.`);
+    }
+    if (Number.isFinite(kSteep) && kSteep > 47) {
+      raise("warn", "Steep K", `K steep가 ${kSteep.toFixed(2)} D입니다. forme fruste keratoconus/비대칭 지형도 여부를 확인하세요.`);
+    }
+    if (Number.isFinite(kFlat) && kFlat < 39) {
+      raise("info", "Flat preop K", `수술 전 flat K가 ${kFlat.toFixed(2)} D로 낮은 편입니다. 수술 후 과도한 flattening을 확인하세요.`);
+    }
+    if (Number.isFinite(ablationDepth) && ablationDepth > 100) {
+      raise(ablationDepth > 120 ? "warn" : "info", "절삭량 큼", `절삭량 ${formatMicron(ablationDepth)}입니다. optical zone과 잔여각막두께를 재확인하세요.`);
+    }
+    if (input.procedure === "lasek") {
+      raise("info", "LASEK/PRK 해석", "PTA는 LASIK flap 기반 연구에서 주로 검증되었습니다. 표면절삭에서는 tissue-use index와 RSB 검산으로 해석하세요.");
+    }
+
+    if (notices.length === 0) {
+      notices.push({ level: "info", title: "검산", message: "입력값 기준으로 PTA, RSB, post-op K가 보수 기준 안에 있습니다. tomography와 임상 판단은 별도입니다." });
+    }
+
+    return {
+      cct,
+      kFlat,
+      kSteep,
+      meanK,
+      opticalZone,
+      lamellarThickness: lamellar,
+      plannedAblationDepth: plannedAblation,
+      estimatedAblation,
+      ablationDepth,
+      ablationSource,
+      residualStromalBed,
+      pta,
+      postFlatK,
+      postMeanK,
+      tissueUsed: Number.isFinite(ablationDepth) ? lamellar + ablationDepth : NaN,
+      status,
+      label,
+      notices
+    };
+  }
+
   function calculateNomogram(input) {
     const options = {
       percentReduction: Math.min(25, Math.max(20, toNumber(input.percentReduction, 25))),
@@ -608,6 +740,14 @@
       topographyQuality: get("topographyQuality").checked,
       stableRefractionChecked: get("stableRefraction").checked,
       screenedContra: get("screenedContra").checked,
+      centralCornealThickness: toNumber(get("centralCornealThickness").value, NaN),
+      kFlat: toNumber(get("kFlat").value, NaN),
+      kSteep: toNumber(get("kSteep").value, NaN),
+      opticalZone: toNumber(get("opticalZone").value, NaN),
+      lamellarThickness: toNumber(get("lamellarThickness").value, NaN),
+      plannedAblationDepth: get("plannedAblationDepth").value === "" ? NaN : toNumber(get("plannedAblationDepth").value),
+      minimumRsb: toNumber(get("minimumRsb").value, 300),
+      minimumFlatK: toNumber(get("minimumFlatK").value, 35),
       ageTable
     };
   }
@@ -656,6 +796,31 @@
     });
 
     drawAxisPreview(result, input);
+    renderSafetyResult(result.safety);
+  }
+
+  function renderSafetyResult(safety) {
+    const get = (id) => document.getElementById(id);
+    const status = get("safetyStatus");
+    status.textContent = safety.label;
+    status.className = `status-pill ${safety.status}`;
+    get("ptaValue").textContent = formatPercent(safety.pta);
+    get("rsbValue").textContent = formatMicron(safety.residualStromalBed);
+    get("ablationValue").textContent = formatMicron(safety.ablationDepth);
+    get("postFlatKValue").textContent = Number.isFinite(safety.postFlatK) ? `${safety.postFlatK.toFixed(2)} D` : "-";
+    get("postMeanKValue").textContent = Number.isFinite(safety.postMeanK) ? `${safety.postMeanK.toFixed(2)} D` : "-";
+    get("preMeanKValue").textContent = Number.isFinite(safety.meanK) ? `${safety.meanK.toFixed(2)} D` : "-";
+    get("tissueUsedValue").textContent = formatMicron(safety.tissueUsed);
+    get("ablationSourceValue").textContent = safety.ablationSource;
+
+    const safetyNotices = get("safetyNotices");
+    safetyNotices.innerHTML = "";
+    safety.notices.forEach((notice) => {
+      const item = document.createElement("div");
+      item.className = `notice ${notice.level}`;
+      item.innerHTML = `<strong>${notice.title}</strong><p>${notice.message}</p>`;
+      safetyNotices.appendChild(item);
+    });
   }
 
   function drawAxisPreview(result, input) {
@@ -725,7 +890,9 @@
     const ids = [
       "profile", "procedure", "eye", "age", "cylinderConvention", "rounding", "sphere", "cylinder", "axis",
       "measuredCylinder", "measuredAxis", "applySphereNomogram", "percentReduction", "seShift",
-      "manualSphereOffset", "manualCylinderOffset", "topographyQuality", "stableRefraction", "screenedContra"
+      "manualSphereOffset", "manualCylinderOffset", "topographyQuality", "stableRefraction", "screenedContra",
+      "centralCornealThickness", "kFlat", "kSteep", "opticalZone", "lamellarThickness",
+      "plannedAblationDepth", "minimumRsb", "minimumFlatK"
     ];
     const ageContainer = document.getElementById("ageTable");
 
@@ -741,6 +908,14 @@
       const element = document.getElementById(id);
       if (element) element.addEventListener("input", update);
       if (element) element.addEventListener("change", update);
+    });
+
+    document.getElementById("procedure").addEventListener("change", () => {
+      const lamellar = document.getElementById("lamellarThickness");
+      if (lamellar.value === "" || lamellar.value === "110" || lamellar.value === "50") {
+        lamellar.value = document.getElementById("procedure").value === "lasek" ? "50" : "110";
+      }
+      update();
     });
 
     document.getElementById("saveAgeTable").addEventListener("click", () => {
@@ -764,6 +939,12 @@
       document.getElementById("measuredCylinder").value = "-2.00";
       document.getElementById("measuredAxis").value = "179";
       document.getElementById("age").value = "32";
+      document.getElementById("centralCornealThickness").value = "540";
+      document.getElementById("kFlat").value = "43.0";
+      document.getElementById("kSteep").value = "44.0";
+      document.getElementById("opticalZone").value = "6.5";
+      document.getElementById("lamellarThickness").value = document.getElementById("procedure").value === "lasek" ? "50" : "110";
+      document.getElementById("plannedAblationDepth").value = "";
       update();
     });
 
@@ -785,6 +966,7 @@
   const api = {
     calculateNomogram,
     calculateContouraModified,
+    calculateCornealSafety,
     formatRx,
     sphericalEquivalent,
     normalizeAxis,
